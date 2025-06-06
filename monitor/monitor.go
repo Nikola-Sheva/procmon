@@ -42,7 +42,10 @@ func CheckProcesses(cpuThreshold, memThreshold float64) {
 		if cpu > cpuThreshold || float64(mem) > memThreshold {
 			msg := fmt.Sprintf("[⚠] PID: %d | Имя: %s | CPU: %.2f%% | RAM: %.2f%%", p.Pid, name, cpu, mem)
 			fmt.Println(msg)
+			// вывод в консоль
 			logger.Printf("%s | %s\n", time.Now().Format(time.RFC3339), msg)
+			// вывод на бота
+			SendAlert(p.Pid, name, cpu, mem)
 		}
 	}
 }

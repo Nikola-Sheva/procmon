@@ -11,7 +11,7 @@ func main() {
 	memThreshold := flag.Float64("mem", 10.0, "Порог памяти (%)")
 	interval := flag.Int("interval", 10, "Интервал мониторинга (сек)")
 
-	flag.Parse()
+	monitor.InitBot("7941396107:AAESmpNfy5YVDQ7zelunO-P9UOCBTHpmrDw")
 
 	for {
 		monitor.CheckProcesses(*cpuThreshold, *memThreshold)

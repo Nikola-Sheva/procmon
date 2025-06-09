@@ -10,7 +10,7 @@ import (
 
 // CheckProcesses проверяет активные процессы и отправляет уведомление,
 // если превышены пороги по CPU или памяти.
-func CheckProcesses(chatID int64, cpuThreshold, memThreshold float64) {
+func CheckProcesses(chatIDs []int64, cpuThreshold, memThreshold float64) {
 	// Получаем список всех процессов в системе
 	procs, err := process.Processes()
 	if err != nil {
@@ -47,8 +47,10 @@ func CheckProcesses(chatID int64, cpuThreshold, memThreshold float64) {
 			// Записываем в лог (с текущим временем)
 			log.Printf("%s | %s\n", time.Now().Format(time.RFC3339), msg)
 
-			// Отправляем сообщение через Telegram-бота конкретному пользователю
-			SendAlertTo(chatID, p.Pid, name, cpu, mem)
+			// Отправляем сообщение всем chatID
+			for _, chatID := range chatIDs {
+				SendAlertTo(chatID, p.Pid, name, cpu, mem)
+			}
 		}
 	}
 }

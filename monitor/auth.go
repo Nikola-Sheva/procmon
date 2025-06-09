@@ -1,12 +1,13 @@
 package monitor
 
 import (
-	"encoding/json"
+	"bufio"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -50,7 +51,22 @@ func handleUpdate(update tgbotapi.Update) {
 	chatID := update.Message.Chat.ID
 	text := update.Message.Text
 
+	// Создаем клавиатуру с одной кнопкой "Start"
+	replyKeyboard := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Start"),
+		),
+	)
+
 	if text == "/start" {
+		// Отправляем клавиатуру с кнопкой
+		msg := tgbotapi.NewMessage(chatID, "Нажмите кнопку 'Start' чтобы получить код для привязки.")
+		msg.ReplyMarkup = replyKeyboard
+		bot.Send(msg)
+		return
+	}
+
+	if text == "Start" {
 		// Генерация кода привязки
 		code := generateCode()
 
@@ -61,7 +77,10 @@ func handleUpdate(update tgbotapi.Update) {
 
 		// Отправляем код пользователю
 		msg := tgbotapi.NewMessage(chatID, "🔐 Ваш код для привязки: "+code)
+		// После отправки кода можно скрыть клавиатуру
+		msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 		bot.Send(msg)
+		return
 	}
 
 }
@@ -70,20 +89,6 @@ func handleUpdate(update tgbotapi.Update) {
 func generateCode() string {
 	rand.Seed(time.Now().UnixNano())
 	return strconv.Itoa(100000 + rand.Intn(900000))
-}
-
-// loadUsers загружает пользователей из файла users.json
-func loadUsers() {
-	data, err := os.ReadFile("users.json")
-	if err == nil {
-		json.Unmarshal(data, &users)
-	}
-}
-
-// saveUsers сохраняет текущих пользователей в файл users.json
-func saveUsers() {
-	data, _ := json.MarshalIndent(users, "", "  ")
-	os.WriteFile("users.json", data, 0644)
 }
 
 // GetChatIDs возвращает список всех chatID зарегистрированных пользователей
@@ -103,19 +108,24 @@ func SendAlertTo(chatID int64, pid int32, name string, cpu float64, mem float32)
 
 // WaitForCodeInput() получает от пользователя код и сверяет его с
 func WaitForCodeInput() (string, int64) {
-	var input string
-	fmt.Print("Введите код, который вы получили в Telegram: ")
-	fmt.Scanln(&input)
+	reader := bufio.NewReader(os.Stdin)
 
-	for username, chatID := range users {
-		if code, ok := pendingCodes[input]; ok && code == username {
-			fmt.Println("Привязка успешна.")
+	for attempts := 1; attempts <= 3; attempts++ {
+		fmt.Print("Введите код, который вы получили в Telegram: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		if username, ok := pendingCodes[input]; ok {
+			chatID := users[username]
+			fmt.Println("✅ Привязка успешна.")
 			delete(pendingCodes, input)
+			saveUsers()
 			return username, chatID
+		} else {
+			fmt.Printf("❌ Неверный код. Попытка %d из 3.\n", attempts)
 		}
 	}
 
-	fmt.Println("❌ Неверный код.")
-	os.Exit(1)
-	return "", 0
+	fmt.Println("❌ Все попытки исчерпаны. Вы можете попробовать снова.")
+	return "", 0 // Рекурсивный вызов для новой серии попыток
 }
